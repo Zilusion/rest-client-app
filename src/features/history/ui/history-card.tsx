@@ -1,6 +1,6 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/core/i18n/navigation';
 import { Button } from '@/components/ui/button';
 import { encode } from '@/core/http/url-encoding';
@@ -17,6 +17,7 @@ function formatBytes(bytes: number): string {
 
 export function HistoryCard({ entry }: { entry: HistoryEntry }) {
   const t = useTranslations('History');
+  const locale = useLocale();
   const { method, url, headers, body } = entry.request;
 
   const encodedUrl = encode(url);
@@ -74,9 +75,21 @@ export function HistoryCard({ entry }: { entry: HistoryEntry }) {
           </div>
         )}
 
-        <p className="text-xs text-muted-foreground/70 mt-2">
-          {entry.createdAt.toLocaleString()}
-        </p>
+        <time
+          className="text-xs text-muted-foreground/70 mt-2 block"
+          dateTime={entry.createdAt.toISOString()}
+        >
+          {new Intl.DateTimeFormat(locale, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZone: 'UTC',
+            timeZoneName: 'short',
+          }).format(entry.createdAt)}
+        </time>
       </div>
       <Button asChild className="ml-4 flex-shrink-0">
         <Link href={finalPath}>{t('rerunButton')}</Link>

@@ -22,7 +22,7 @@ describe('HistoryCard', () => {
     const mockEntry: HistoryEntry = {
       id: '1',
       userId: 'u1',
-      createdAt: new Date(),
+      createdAt: new Date('2026-08-17T12:00:00Z'),
       request: {
         method: 'POST',
         url: 'https://test.com',
@@ -41,6 +41,10 @@ describe('HistoryCard', () => {
 
     expect(screen.getByText('POST - 201')).toBeInTheDocument();
     expect(screen.getByText('https://test.com')).toBeInTheDocument();
+    expect(screen.getByText(/UTC/)).toHaveAttribute(
+      'datetime',
+      '2026-08-17T12:00:00.000Z'
+    );
     expect(screen.getByRole('link', { name: 'Re-run' })).toBeInTheDocument();
   });
 });

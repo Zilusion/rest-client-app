@@ -36,7 +36,7 @@ export const Header = () => {
     await logout();
     setUser(null);
     router.replace('/');
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -59,8 +59,12 @@ export const Header = () => {
           : 'bg-primary text-primary-foreground py-4'
       )}
     >
-      <div className="container mx-auto px-4 flex items-center justify-between">
-        <Link data-testid="logo-link" href="/" className="flex items-center">
+      <div className="container mx-auto flex flex-col items-center gap-3 px-4 sm:flex-row sm:justify-between">
+        <Link
+          data-testid="logo-link"
+          href="/"
+          className="flex shrink-0 items-center"
+        >
           <Image
             src="/rest-client-app-logo.png"
             width={120}
@@ -75,7 +79,7 @@ export const Header = () => {
           />
         </Link>
 
-        <nav className="flex items-center gap-3">
+        <nav className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-3">
           <LanguageSwitcher size={isScrolled ? 'sm' : 'default'} />
           {user ? (
             <>

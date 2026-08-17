@@ -1,0 +1,10 @@
+.git
+.github
+.next
+coverage
+deploy
+node_modules
+npm-debug.log*
+*.md
+*.pem
+.env*

@@ -17,12 +17,10 @@ vi.mock('next/headers', () => ({
 const mockCreateSessionCookie = vi.fn();
 const mockVerifySessionCookie = vi.fn();
 vi.mock('@/core/firebase/admin.ts', () => ({
-  default: {
-    auth: () => ({
-      createSessionCookie: mockCreateSessionCookie,
-      verifySessionCookie: mockVerifySessionCookie,
-    }),
-  },
+  getFirebaseAdminAuth: () => ({
+    createSessionCookie: mockCreateSessionCookie,
+    verifySessionCookie: mockVerifySessionCookie,
+  }),
 }));
 
 describe('Session Functions', () => {
@@ -39,7 +37,7 @@ describe('Session Functions', () => {
       await createSession(idToken);
 
       expect(mockCreateSessionCookie).toHaveBeenCalledWith(idToken, {
-        expiresIn: 60 * 5 * 1000,
+        expiresIn: 60 * 60 * 1000,
       });
       expect(mockSet).toHaveBeenCalledWith(
         'session',

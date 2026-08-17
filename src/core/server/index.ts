@@ -1,2 +1,6 @@
-export { default as firebaseAdmin } from '../firebase/admin';
+export {
+  getFirebaseAdminApp,
+  getFirebaseAdminAuth,
+  getFirebaseAdminDb,
+} from '../firebase/admin';
 export * from '../session/session';

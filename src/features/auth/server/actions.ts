@@ -13,7 +13,12 @@ import {
 import {
   registerWithEmailAndPassword,
   logInWithEmailAndPassword,
-} from '@/core/firebase/client';
+} from '@/core/firebase/auth';
+import {
+  getFirebaseAdminAuth,
+  getFirebaseAdminDb,
+} from '@/core/firebase/admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getTranslations } from 'next-intl/server';
 
 export async function signUp(
@@ -36,25 +41,37 @@ export async function signUp(
 
   const { email, password } = validatedFields.data;
 
+  let registeredUserId: string | null = null;
+
   try {
     const data = await registerWithEmailAndPassword(email, password);
+    registeredUserId = data.localId;
 
-    if (!data?.user) {
-      return {
-        errors: {
-          general: ['Registration failed'],
-        },
-      };
-    }
+    await getFirebaseAdminDb().collection('users').doc(data.localId).set({
+      uid: data.localId,
+      authProvider: 'local',
+      email: data.email,
+      createdAt: FieldValue.serverTimestamp(),
+    });
 
-    const token = await data.user.getIdToken();
-    await createSession(token);
+    await createSession(data.idToken);
 
     return {
       success: true,
       message: 'Registration successful!',
     };
   } catch (error: unknown) {
+    if (registeredUserId) {
+      await getFirebaseAdminDb()
+        .collection('users')
+        .doc(registeredUserId)
+        .delete()
+        .catch(() => {});
+      await getFirebaseAdminAuth()
+        .deleteUser(registeredUserId)
+        .catch(() => {});
+    }
+
     if (error instanceof Error)
       return {
         errors: {
@@ -86,17 +103,7 @@ export async function signIn(
 
   try {
     const data = await logInWithEmailAndPassword(email, password);
-
-    if (!data) {
-      return {
-        errors: {
-          general: ['Authentication failed'],
-        },
-      };
-    }
-
-    const token = await data.user.getIdToken();
-    await createSession(token);
+    await createSession(data.idToken);
 
     return {
       success: true,
@@ -118,11 +125,5 @@ export async function logout() {
 }
 
 export async function getCurrentSession() {
-  try {
-    const session = await getSession();
-    return session;
-  } catch (error) {
-    console.error('Session verification failed:', error);
-    throw error;
-  }
+  return getSession();
 }

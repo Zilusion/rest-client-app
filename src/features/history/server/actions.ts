@@ -1,16 +1,9 @@
 'use server';
 
-import { db } from '@/core/firebase/client';
+import { getFirebaseAdminDb } from '@/core/firebase/admin';
 import { getSession } from '@/core/session/session';
 import { logger } from '@/core/utils/logger';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  Timestamp,
-} from 'firebase/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export interface HistoryEntry {
   id: string;
@@ -38,25 +31,25 @@ export async function getHistory(): Promise<HistoryEntry[]> {
       return [];
     }
 
-    const q = query(
-      collection(db, 'history'),
-      where('userId', '==', session.userId),
-      orderBy('createdAt', 'desc')
-    );
+    const querySnapshot = await getFirebaseAdminDb()
+      .collection('users')
+      .doc(session.userId)
+      .collection('history')
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
 
-    const querySnapshot = await getDocs(q);
-
-    const history: HistoryEntry[] = [];
-    querySnapshot.forEach((doc) => {
+    return querySnapshot.docs.map((doc) => {
       const data = doc.data();
-      history.push({
+      const createdAt = data.createdAt as Timestamp | undefined;
+
+      return {
         id: doc.id,
         ...data,
-        createdAt: (data.createdAt as Timestamp).toDate(),
-      } as HistoryEntry);
+        userId: session.userId,
+        createdAt: createdAt?.toDate() ?? new Date(0),
+      } as HistoryEntry;
     });
-
-    return history;
   } catch (error) {
     logger.error('Failed to fetch history:', error);
     return [];

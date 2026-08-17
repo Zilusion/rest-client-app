@@ -1,81 +1,87 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  get: vi.fn(),
+}));
+
+vi.mock('server-only', () => ({}));
+vi.mock('@/core/session/session', () => ({ getSession: mocks.getSession }));
+vi.mock('@/core/firebase/admin', () => ({
+  getFirebaseAdminDb: vi.fn(() => ({
+    collection: vi.fn(() => ({
+      doc: vi.fn(() => ({
+        collection: vi.fn(() => ({
+          orderBy: vi.fn(() => ({
+            limit: vi.fn(() => ({ get: mocks.get })),
+          })),
+        })),
+      })),
+    })),
+  })),
+}));
+
 import { getHistory } from './actions';
 import { logger } from '@/core/utils/logger';
 
-vi.mock('server-only', () => ({}));
-vi.mock('@/core/session/session');
-vi.mock('firebase/firestore');
-
-import * as session from '@/core/session/session';
-import { getDocs, QuerySnapshot } from 'firebase/firestore';
-
-const mockedGetSession = vi.mocked(session.getSession);
-const mockedGetDocs = vi.mocked(getDocs);
-
-describe('getHistory Server Action', () => {
+describe('getHistory server action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should return an empty array if user is not authenticated', async () => {
-    mockedGetSession.mockResolvedValue(null);
-    const history = await getHistory();
-    expect(history).toEqual([]);
+  it('returns an empty list for an unauthenticated request', async () => {
+    mocks.getSession.mockResolvedValue(null);
+    await expect(getHistory()).resolves.toEqual([]);
+    expect(mocks.get).not.toHaveBeenCalled();
   });
 
-  it('should fetch and format history for an authenticated user', async () => {
-    mockedGetSession.mockResolvedValue({ userId: 'user-123' });
-
-    const mockDoc = {
-      id: 'doc-1',
-      data: () => ({
-        userId: 'user-123',
-        request: {
-          method: 'GET',
-          url: 'https://test.com',
-          headers: {},
-          body: '',
+  it('returns the latest user-scoped history entries', async () => {
+    const createdAt = new Date('2026-08-17T12:00:00Z');
+    mocks.getSession.mockResolvedValue({ userId: 'user-123' });
+    mocks.get.mockResolvedValue({
+      docs: [
+        {
+          id: 'entry-1',
+          data: () => ({
+            request: {
+              method: 'GET',
+              url: 'https://example.com',
+              headers: {},
+              size: 0,
+            },
+            response: {
+              status: 200,
+              duration: 25,
+              error: null,
+              size: 12,
+            },
+            createdAt: { toDate: () => createdAt },
+          }),
         },
-        response: { status: 200, duration: 100, error: null },
-        createdAt: { toDate: () => new Date() },
-      }),
-    };
-
-    const mockQuerySnapshot = {
-      empty: false,
-      docs: [mockDoc],
-      forEach: (callback: (doc: typeof mockDoc) => void) => {
-        mockQuerySnapshot.docs.forEach(callback);
-      },
-    };
-
-    mockedGetDocs.mockResolvedValue(
-      mockQuerySnapshot as unknown as QuerySnapshot
-    );
+      ],
+    });
 
     const history = await getHistory();
 
     expect(history).toHaveLength(1);
-    expect(history[0].id).toBe('doc-1');
-    expect(history[0].request.method).toBe('GET');
+    expect(history[0]).toEqual(
+      expect.objectContaining({
+        id: 'entry-1',
+        userId: 'user-123',
+        createdAt,
+      })
+    );
   });
 
-  it('should return an empty array if firestore throws an error', async () => {
-    const consoleSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
+  it('returns an empty list when Firestore is unavailable', async () => {
+    const log = vi.spyOn(logger, 'error').mockImplementation(() => {});
+    mocks.getSession.mockResolvedValue({ userId: 'user-123' });
+    mocks.get.mockRejectedValue(new Error('Firestore unavailable'));
 
-    mockedGetSession.mockResolvedValue({ userId: 'user-123' });
-    mockedGetDocs.mockRejectedValue(new Error('Firestore failed'));
-
-    const history = await getHistory();
-
-    expect(history).toEqual([]);
-
-    expect(consoleSpy).toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(
+    await expect(getHistory()).resolves.toEqual([]);
+    expect(log).toHaveBeenCalledWith(
       'Failed to fetch history:',
       expect.any(Error)
     );
-
-    consoleSpy.mockRestore();
   });
 });

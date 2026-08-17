@@ -20,11 +20,25 @@ _In our project we use the following technologies:_
 
 _To run the project locally, follow these steps:_
 
-1. Clone the repository: `git clone https://github.com/novogran/rest-client-app.git`
+1. Clone the repository: `git clone https://github.com/Zilusion/rest-client-app.git`
 2. Navigate to the project folder: `cd rest-client-app`
-3. Install dependencies: `npm install`
-4. Run the project: `npm run dev`
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+3. Copy `.env.example` to `.env.local` and provide the Firebase credentials
+4. Install dependencies: `npm ci`
+5. Run the project: `npm run dev`
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Demo Deployment
+
+The public demo runs as a standalone Next.js container. Authentication uses
+Firebase Identity Toolkit, while sessions and request history are handled only
+by the server through Firebase Admin. The outbound request executor rejects
+private networks, non-HTTP protocols, oversized payloads, and unsupported
+ports.
+
+GitHub Actions publishes multi-platform images to
+`ghcr.io/zilusion/rest-client-demo`. The runtime Compose file is available at
+`deploy/compose.yml`; the Firebase Admin JSON must be mounted separately and
+must never be committed.
 
 ## Available Scripts 📑
 

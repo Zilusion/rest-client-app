@@ -28,8 +28,9 @@ describe('HistoryCard', () => {
         url: 'https://test.com',
         headers: {},
         body: '',
+        size: 0,
       },
-      response: { status: 201, duration: 150, error: null },
+      response: { status: 201, duration: 150, error: null, size: 12 },
     };
 
     render(

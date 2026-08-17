@@ -24,15 +24,15 @@ describe('HistoryList', () => {
         id: '1',
         userId: 'u1',
         createdAt: new Date(),
-        request: { method: 'GET', url: 'url1', headers: {} },
-        response: { status: 200, duration: 100, error: null },
+        request: { method: 'GET', url: 'url1', headers: {}, size: 0 },
+        response: { status: 200, duration: 100, error: null, size: 10 },
       },
       {
         id: '2',
         userId: 'u1',
         createdAt: new Date(),
-        request: { method: 'POST', url: 'url2', headers: {} },
-        response: { status: 404, duration: 200, error: null },
+        request: { method: 'POST', url: 'url2', headers: {}, size: 0 },
+        response: { status: 404, duration: 200, error: null, size: 20 },
       },
     ];
 

@@ -25,7 +25,7 @@
   },
   "HomePage": {
     "title": "Welcome!",
-    "subtitle": "This is a light-weight version of Postman. Session expire time 5 minutes.",
+    "subtitle": "This is a lightweight version of Postman. The session lasts one hour.",
     "restClientLink": "Go to REST Client",
     "variablesLink": "Manage Variables",
     "historyLink": "Request History",

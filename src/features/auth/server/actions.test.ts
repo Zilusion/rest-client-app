@@ -1,194 +1,135 @@
-vi.mock('server-only', () => ({}));
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/core/firebase/client', () => ({
-  registerWithEmailAndPassword: vi.fn(),
-  logInWithEmailAndPassword: vi.fn(),
-}));
-
-vi.mock('@/core/session/session', () => ({
+const mocks = vi.hoisted(() => ({
+  register: vi.fn(),
+  login: vi.fn(),
   createSession: vi.fn(),
   deleteSession: vi.fn(),
   getSession: vi.fn(),
+  profileSet: vi.fn(),
+  profileDelete: vi.fn(),
+  deleteUser: vi.fn(),
 }));
 
+vi.mock('server-only', () => ({}));
+vi.mock('@/core/firebase/auth', () => ({
+  registerWithEmailAndPassword: mocks.register,
+  logInWithEmailAndPassword: mocks.login,
+}));
+vi.mock('@/core/firebase/admin', () => ({
+  getFirebaseAdminDb: vi.fn(() => ({
+    collection: vi.fn(() => ({
+      doc: vi.fn(() => ({
+        set: mocks.profileSet,
+        delete: mocks.profileDelete,
+      })),
+    })),
+  })),
+  getFirebaseAdminAuth: vi.fn(() => ({ deleteUser: mocks.deleteUser })),
+}));
+vi.mock('@/core/session/session', () => ({
+  createSession: mocks.createSession,
+  deleteSession: mocks.deleteSession,
+  getSession: mocks.getSession,
+}));
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn().mockResolvedValue((key: string) => key),
 }));
+vi.mock('firebase-admin/firestore', () => ({
+  FieldValue: { serverTimestamp: vi.fn(() => 'server-timestamp') },
+}));
 
-import {
-  registerWithEmailAndPassword,
-  logInWithEmailAndPassword,
-} from '@/core/firebase/client';
-import { signUp, signIn, logout, getCurrentSession } from './actions';
-import { UserCredential } from 'firebase/auth';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { createSession, deleteSession, getSession } from '@/core/server';
+import { getCurrentSession, logout, signIn, signUp } from './actions';
 
-const mockedRegister = vi.mocked(registerWithEmailAndPassword);
-const mockedLogin = vi.mocked(logInWithEmailAndPassword);
-const mockedCreateSession = vi.mocked(createSession);
-const mockedDeleteSession = vi.mocked(deleteSession);
-const mockedGetSession = vi.mocked(getSession);
+const authResponse = {
+  localId: 'user-123',
+  email: 'test@example.com',
+  idToken: 'id-token',
+  refreshToken: 'refresh-token',
+  expiresIn: '3600',
+};
 
-const mockUserCredential = {
-  user: {
-    getIdToken: vi.fn().mockResolvedValue('test-token'),
-  },
-} as unknown as UserCredential;
+function createSignUpForm(): FormData {
+  const formData = new FormData();
+  formData.set('email', 'test@example.com');
+  formData.set('password', 'Password123!');
+  formData.set('confirmPassword', 'Password123!');
+  return formData;
+}
 
-describe('Auth Actions', () => {
+function createSignInForm(): FormData {
+  const formData = new FormData();
+  formData.set('email', 'test@example.com');
+  formData.set('password', 'Password123!');
+  return formData;
+}
+
+describe('Auth server actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.register.mockResolvedValue(authResponse);
+    mocks.login.mockResolvedValue(authResponse);
+    mocks.profileSet.mockResolvedValue(undefined);
+    mocks.profileDelete.mockResolvedValue(undefined);
+    mocks.deleteUser.mockResolvedValue(undefined);
+    mocks.createSession.mockResolvedValue(undefined);
   });
 
-  describe('signUp', () => {
-    it('should return success for valid registration', async () => {
-      const formData = new FormData();
-      formData.append('email', 'test@example.com');
-      formData.append('password', 'Password123!');
-      formData.append('confirmPassword', 'Password123!');
+  it('registers a Firebase user, creates a profile and starts a session', async () => {
+    const result = await signUp({}, createSignUpForm());
 
-      mockedRegister.mockResolvedValue(mockUserCredential);
-
-      const result = await signUp({}, formData);
-
-      expect(result.success).toBe(true);
-      expect(mockedCreateSession).toHaveBeenCalledWith('test-token');
-    });
-
-    it('should return a general error if registration fails', async () => {
-      const formData = new FormData();
-      formData.append('email', 'test@example.com');
-      formData.append('password', 'Password123!');
-      formData.append('confirmPassword', 'Password123!');
-
-      mockedRegister.mockRejectedValue(new Error('Firebase error'));
-
-      const result = await signUp({}, formData);
-      expect(result.errors?.general).toEqual(['Firebase error']);
-    });
-
-    it('should return errors for invalid input', async () => {
-      const formData = new FormData();
-      formData.append('email', 'invalid-email');
-      formData.append('password', 'short');
-      formData.append('confirmPassword', 'different');
-
-      const result = await signUp({}, formData);
-
-      expect(result.errors).toBeDefined();
-      expect(result.errors?.email).toBeDefined();
-      expect(result.errors?.password).toBeDefined();
-    });
-
-    it('should return error when registration fails (no user)', async () => {
-      const formData = new FormData();
-      formData.append('email', 'test@example.com');
-      formData.append('password', 'Password123!');
-      formData.append('confirmPassword', 'Password123!');
-
-      vi.mocked(registerWithEmailAndPassword).mockResolvedValue(
-        {} as UserCredential
-      );
-
-      const result = await signUp({}, formData);
-
-      expect(result.errors?.general).toEqual(['Registration failed']);
-    });
-
-    it('should handle unknown errors', async () => {
-      const formData = new FormData();
-      formData.append('email', 'test@example.com');
-      formData.append('password', 'Password123!');
-      formData.append('confirmPassword', 'Password123!');
-
-      vi.mocked(registerWithEmailAndPassword).mockRejectedValue(
-        'unknown error'
-      );
-
-      const result = await signUp({}, formData);
-
-      expect(result.errors).toBeUndefined();
-    });
+    expect(result.success).toBe(true);
+    expect(mocks.profileSet).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'user-123', email: 'test@example.com' })
+    );
+    expect(mocks.createSession).toHaveBeenCalledWith('id-token');
   });
 
-  describe('signIn', () => {
-    it('should return success for valid login', async () => {
-      const formData = new FormData();
-      formData.append('email', 'test@example.com');
-      formData.append('password', 'Password123!');
+  it('removes a partially created user when registration setup fails', async () => {
+    mocks.createSession.mockRejectedValue(new Error('Session failed'));
 
-      mockedLogin.mockResolvedValue(mockUserCredential);
+    const result = await signUp({}, createSignUpForm());
 
-      const result = await signIn({}, formData);
-
-      expect(result.success).toBe(true);
-      expect(mockedCreateSession).toHaveBeenCalledWith('test-token');
-    });
-
-    it('should return a general error if login fails', async () => {
-      const formData = new FormData();
-      formData.append('email', 'test@example.com');
-      formData.append('password', 'Password123!');
-
-      mockedLogin.mockRejectedValue(new Error('Invalid credentials'));
-
-      const result = await signIn({}, formData);
-      expect(result.errors?.general).toEqual(['Invalid credentials']);
-    });
-
-    it('should return errors for invalid input', async () => {
-      const formData = new FormData();
-      formData.append('email', 'invalid-email');
-      formData.append('password', '');
-
-      const result = await signIn({}, formData);
-
-      expect(result.errors).toBeDefined();
-      expect(result.errors?.email).toBeDefined();
-      expect(result.errors?.password).toBeDefined();
-    });
-
-    it('should return error when login fails (no data)', async () => {
-      const formData = new FormData();
-      formData.append('email', 'test@example.com');
-      formData.append('password', 'Password123!');
-
-      vi.mocked(logInWithEmailAndPassword).mockResolvedValue(null);
-
-      const result = await signIn({}, formData);
-
-      expect(result.errors?.general).toEqual(['Authentication failed']);
-    });
-
-    it('should handle unknown errors', async () => {
-      const formData = new FormData();
-      formData.append('email', 'test@example.com');
-      formData.append('password', 'Password123!');
-
-      vi.mocked(logInWithEmailAndPassword).mockRejectedValue('unknown error');
-
-      const result = await signIn({}, formData);
-
-      expect(result.errors).toBeUndefined();
-    });
+    expect(result.errors?.general).toEqual(['Session failed']);
+    expect(mocks.profileDelete).toHaveBeenCalled();
+    expect(mocks.deleteUser).toHaveBeenCalledWith('user-123');
   });
 
-  describe('logout', () => {
-    it('should call deleteSession', async () => {
-      await logout();
-      expect(mockedDeleteSession).toHaveBeenCalledTimes(1);
-    });
+  it('validates registration input before contacting Firebase', async () => {
+    const formData = new FormData();
+    formData.set('email', 'invalid-email');
+    formData.set('password', 'short');
+    formData.set('confirmPassword', 'different');
+
+    const result = await signUp({}, formData);
+
+    expect(result.errors?.email).toBeDefined();
+    expect(result.errors?.password).toBeDefined();
+    expect(mocks.register).not.toHaveBeenCalled();
   });
 
-  describe('getCurrentSession', () => {
-    it('should return the session object from getSession', async () => {
-      const mockSession = { userId: 'user-123' };
-      mockedGetSession.mockResolvedValue(mockSession);
+  it('signs in and starts a session', async () => {
+    const result = await signIn({}, createSignInForm());
 
-      const result = await getCurrentSession();
-      expect(result).toEqual(mockSession);
-      expect(mockedGetSession).toHaveBeenCalledTimes(1);
-    });
+    expect(result.success).toBe(true);
+    expect(mocks.createSession).toHaveBeenCalledWith('id-token');
+  });
+
+  it('returns Firebase authentication errors', async () => {
+    mocks.login.mockRejectedValue(new Error('INVALID_LOGIN_CREDENTIALS'));
+
+    const result = await signIn({}, createSignInForm());
+
+    expect(result.errors?.general).toEqual(['INVALID_LOGIN_CREDENTIALS']);
+  });
+
+  it('deletes the session on logout', async () => {
+    await logout();
+    expect(mocks.deleteSession).toHaveBeenCalledOnce();
+  });
+
+  it('returns the current verified session', async () => {
+    mocks.getSession.mockResolvedValue({ userId: 'user-123' });
+    await expect(getCurrentSession()).resolves.toEqual({ userId: 'user-123' });
   });
 });

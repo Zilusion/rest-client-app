@@ -1,12 +1,13 @@
 import 'server-only';
 import { cookies } from 'next/headers';
-import admin from '../firebase/admin';
+import { getFirebaseAdminAuth } from '../firebase/admin';
 
 export async function createSession(idToken: string) {
-  const expiresIn = 60 * 5;
-  const sessionCookie = await admin
-    .auth()
-    .createSessionCookie(idToken, { expiresIn: expiresIn * 1000 });
+  const expiresIn = 60 * 60;
+  const sessionCookie = await getFirebaseAdminAuth().createSessionCookie(
+    idToken,
+    { expiresIn: expiresIn * 1000 }
+  );
 
   const cookieStore = await cookies();
   cookieStore.set('session', sessionCookie, {
@@ -30,11 +31,12 @@ export async function getSession(): Promise<{ userId: string } | null> {
   if (!sessionCookie) return null;
 
   try {
-    const decodedToken = await admin
-      .auth()
-      .verifySessionCookie(sessionCookie, true);
+    const decodedToken = await getFirebaseAdminAuth().verifySessionCookie(
+      sessionCookie,
+      true
+    );
     return { userId: decodedToken.uid };
-  } catch (error) {
-    throw error;
+  } catch {
+    return null;
   }
 }

@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { useActionState } from 'react';
 import { useRouter } from '@/core/i18n/navigation';
 import { useTranslations } from 'next-intl';
@@ -148,11 +148,11 @@ describe('SignUpForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    (useRouter as vi.Mock).mockReturnValue({
+    (useRouter as Mock).mockReturnValue({
       push: mockRouterPush,
     });
 
-    (useTranslations as vi.Mock).mockImplementation((namespace: string) => {
+    (useTranslations as Mock).mockImplementation((namespace: string) => {
       const translations: Record<string, string> = {
         'Auth.signUpTitle': 'Create Account',
         'Auth.signUpDescription': 'Sign up to get started',
@@ -170,13 +170,13 @@ describe('SignUpForm', () => {
       return (key: string) => translations[`${namespace}.${key}`] || key;
     });
 
-    (useActionState as vi.Mock).mockReturnValue([
+    (useActionState as Mock).mockReturnValue([
       { errors: undefined, success: false, message: undefined },
       mockAction,
       false,
     ]);
 
-    (useForm as vi.Mock).mockReturnValue(mockUseForm);
+    (useForm as Mock).mockReturnValue(mockUseForm);
   });
 
   it('renders the sign up form correctly', () => {
@@ -261,7 +261,7 @@ describe('SignUpForm', () => {
   });
 
   it('shows loading state when pending', () => {
-    (useActionState as vi.Mock).mockReturnValue([
+    (useActionState as Mock).mockReturnValue([
       { errors: undefined, success: false, message: undefined },
       mockAction,
       true,
@@ -277,7 +277,7 @@ describe('SignUpForm', () => {
   });
 
   it('handles server errors', async () => {
-    (useActionState as vi.Mock).mockReturnValue([
+    (useActionState as Mock).mockReturnValue([
       {
         errors: {
           email: ['Invalid email'],
@@ -305,7 +305,7 @@ describe('SignUpForm', () => {
   });
 
   it('redirects on success', async () => {
-    (useActionState as vi.Mock).mockReturnValue([
+    (useActionState as Mock).mockReturnValue([
       {
         errors: undefined,
         success: true,
@@ -332,7 +332,7 @@ describe('SignUpForm', () => {
   });
 
   it('handles empty state gracefully', () => {
-    (useActionState as vi.Mock).mockReturnValue([null, mockAction, false]);
+    (useActionState as Mock).mockReturnValue([null, mockAction, false]);
 
     render(<SignUpForm />);
 
@@ -340,7 +340,7 @@ describe('SignUpForm', () => {
   });
 
   it('handles undefined errors', async () => {
-    (useActionState as vi.Mock).mockReturnValue([
+    (useActionState as Mock).mockReturnValue([
       {
         errors: undefined,
         success: false,

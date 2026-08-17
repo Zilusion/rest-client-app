@@ -1,5 +1,3 @@
-export * as firebase from './firebase/client';
-
 export * from './store/store';
 export * from './store/hooks';
 

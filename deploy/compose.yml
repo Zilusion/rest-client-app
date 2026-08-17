@@ -1,0 +1,26 @@
+services:
+  rest-client-demo:
+    image: ghcr.io/zilusion/rest-client-demo:latest
+    container_name: rest-client-demo
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      FIREBASE_PROJECT_ID: rest-client-demo
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-admin.json
+    volumes:
+      - ./secrets/firebase-admin.json:/run/secrets/firebase-admin.json:ro
+    networks:
+      proxy-net:
+        aliases:
+          - rest-client-demo
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+
+networks:
+  proxy-net:
+    external: true
